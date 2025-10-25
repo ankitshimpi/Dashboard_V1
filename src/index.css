@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global typography / background */
+body {
+  @apply bg-appBg text-textMain antialiased;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+}
+
+/* Card */
+.card {
+  @apply bg-cardBg border border-border rounded-card shadow-sm;
+}
+
+.card-header {
+  @apply flex flex-col gap-1 border-b border-border px-6 py-4;
+}
+
+.card-title {
+  @apply text-base font-semibold text-textMain;
+}
+
+.card-description {
+  @apply text-sm text-textDim;
+}
+
+.card-body {
+  @apply p-6;
+}
+
+/* Buttons */
+.btn {
+  @apply inline-flex items-center justify-center text-sm font-medium rounded-md
+    border border-transparent px-3 py-2 select-none
+    focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary;
+}
+
+.btn-primary {
+  @apply bg-primary text-white hover:bg-primary-hover;
+}
+
+.btn-outline {
+  @apply bg-white text-textMain border border-border hover:bg-slate-50;
+}
+
+/* Inputs */
+.input {
+  @apply block w-full rounded-md border border-border bg-white px-3 py-2 text-sm
+    text-textMain shadow-sm focus:outline-none focus:ring-2 focus:ring-primary
+    focus:border-transparent;
+}
+
+/* Badge */
+.badge {
+  @apply inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5
+    text-xs font-medium text-slate-700 border border-slate-200;
+}
