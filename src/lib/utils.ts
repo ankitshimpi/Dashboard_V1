@@ -4,7 +4,8 @@ export type DataRow = {
   [key: string]: string | number | null;
   Accounts?: string;
   Month?: string; // "January", "February", ...
-  Week?: string; // "WK 01", "WK 02", ...
+  Week?: string;  // "WK 01", "WK 02", ...
+  Year?: string | number; // <-- assuming your data has Year
 };
 
 // A calculated column definition
@@ -51,6 +52,21 @@ export function getUniqueAccounts(rows: DataRow[]): string[] {
   return Array.from(set).sort();
 }
 
+// NEW: unique Years list
+export function getUniqueYears(rows: DataRow[]): string[] {
+  const set = new Set<string>();
+  rows.forEach((r) => {
+    if (r.Year !== null && r.Year !== undefined) {
+      const y = String(r.Year).trim();
+      if (y !== "") {
+        set.add(y);
+      }
+    }
+  });
+  // numeric sort (2023, 2024, 2025...)
+  return Array.from(set).sort((a, b) => Number(a) - Number(b));
+}
+
 // unique Months list
 export function getUniqueMonths(rows: DataRow[]): string[] {
   const set = new Set<string>();
@@ -91,6 +107,15 @@ export function filterByAccounts(
 ): DataRow[] {
   if (selected.length === 0) return rows;
   return rows.filter((r) => selected.includes(String(r.Accounts)));
+}
+
+// NEW: filter rows by selected Years
+export function filterByYears(
+  rows: DataRow[],
+  selectedYears: string[]
+): DataRow[] {
+  if (selectedYears.length === 0) return rows;
+  return rows.filter((r) => selectedYears.includes(String(r.Year ?? "").trim()));
 }
 
 // filter rows by selected Months or Weeks depending on mode
@@ -148,8 +173,6 @@ export function applyCalculatedColumns(
     for (const calc of calcColumns) {
       const { name, formula } = calc;
 
-      // Build a scope with the row's numeric values.
-      // Example: Spend=123, Sales=456 -> available as Spend, Sales in formula.
       const scopeKeys = Object.keys(newRow);
       const scopeVals = scopeKeys.map((k) => {
         const v = newRow[k];
@@ -158,8 +181,6 @@ export function applyCalculatedColumns(
       });
 
       try {
-        // create function with args = column names, body = return <formula>
-        // e.g. new Function("Spend","Sales", "return (Spend / Sales) * 100;")
         const fn = new Function(
           ...scopeKeys,
           `return (${formula});`
@@ -169,7 +190,6 @@ export function applyCalculatedColumns(
 
         newRow[name] = Number.isFinite(result) ? result : null;
       } catch (err) {
-        // if formula fails we just set null
         newRow[name] = null;
       }
     }
@@ -180,11 +200,6 @@ export function applyCalculatedColumns(
 
 /**
  * Summarize rows by period (Month or Week) for a single metric.
- * This is used by the chart.
- *
- * Returns:
- *   labels: ["January","February",...] OR ["WK 01","WK 02",...]
- *   data:   [1234, 5678, ...] totals of that metric
  */
 export function summarizeMetricByPeriod(
   rows: DataRow[],
@@ -236,14 +251,6 @@ export function summarizeMetricByPeriod(
 
 /**
  * Compute conditional formatting guidance between two periods.
- *
- * We’ll look at up to 2 periods (like Month A vs Month B or Week 01 vs Week 02).
- * We return a map:
- *   formatting[account][periodValue][metric] = "worse" | "better" | "same"
- *
- * "Worse" is defined by some business rules:
- *   - Higher is bad: ACOS, CPC
- *   - Lower is bad: ROAS, CTR
  */
 export function buildConditionalFormattingMap(
   rows: DataRow[],
@@ -251,13 +258,11 @@ export function buildConditionalFormattingMap(
   selectedPeriods: string[],
   metricsToWatch: string[]
 ) {
-  // only makes sense if user picked exactly two periods
   if (selectedPeriods.length !== 2) return {};
 
   const periodKey = mode === "month" ? "Month" : "Week";
   const [p1, p2] = selectedPeriods; // compare p2 vs p1
-  // aggregate by account+period for each metric
-  // agg[account][period][metric] = sum
+
   const agg: Record<string, Record<string, Record<string, number>>> = {};
 
   rows.forEach((row) => {
@@ -279,9 +284,6 @@ export function buildConditionalFormattingMap(
     });
   });
 
-  // now decide worse/better
-  // higher is bad: ACOS, CPC
-  // lower is bad: ROAS, CTR
   const higherBad = ["ACOS", "CPC"];
   const lowerBad = ["ROAS", "CTR"];
 
@@ -303,20 +305,16 @@ export function buildConditionalFormattingMap(
       let status: "worse" | "better" | "same" = "same";
 
       if (higherBad.includes(m)) {
-        // if v2 > v1 it's worse
         if (v2 > v1) status = "worse";
         else if (v2 < v1) status = "better";
       } else if (lowerBad.includes(m)) {
-        // if v2 < v1 it's worse
         if (v2 < v1) status = "worse";
         else if (v2 > v1) status = "better";
       } else {
-        // default: higher is better
         if (v2 > v1) status = "better";
         else if (v2 < v1) status = "worse";
       }
 
-      // assign to p2 only (current period), p1 can stay "same"
       formatting[acct][p2][m] = status;
       formatting[acct][p1][m] = "same";
     });

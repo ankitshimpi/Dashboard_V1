@@ -1,0 +1,95 @@
+import { useState, useRef, useEffect } from "react";
+import { Badge } from "./Badge";
+import { cn } from "../../lib/cn";
+
+export default function YearSelector({
+  allYears,
+  selected,
+  onChange,
+}: {
+  allYears: string[];
+  selected: string[];
+  onChange: (vals: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (!wrapperRef.current) return;
+      if (!wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  function toggleYear(y: string) {
+    if (selected.includes(y)) {
+      onChange(selected.filter((v) => v !== y));
+    } else {
+      onChange([...selected, y]);
+    }
+  }
+
+  return (
+    <div className="card mb-6">
+      <div className="card-header">
+        <div className="card-title">Filter by Year</div>
+      </div>
+      <div className="card-body">
+        <div className="relative" ref={wrapperRef}>
+          <button
+            type="button"
+            className={cn(
+              "input flex items-center justify-between cursor-pointer",
+              "text-left"
+            )}
+            onClick={() => setOpen((o) => !o)}
+          >
+            <span className="truncate text-slate-500">
+              {selected.length === 0
+                ? "Select year(s)..."
+                : `${selected.length} selected`}
+            </span>
+            <span className="ml-2 text-slate-400 text-xs">▼</span>
+          </button>
+
+          {open && (
+            <div className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-md border border-border bg-white shadow-lg">
+              {allYears.length === 0 ? (
+                <div className="px-3 py-2 text-sm text-textDim">
+                  No years found
+                </div>
+              ) : (
+                allYears.map((y) => (
+                  <label
+                    key={y}
+                    className="flex items-center gap-2 px-3 py-2 text-sm text-textMain hover:bg-slate-50 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={selected.includes(y)}
+                      onChange={() => toggleYear(y)}
+                    />
+                    <span className="truncate">{y}</span>
+                  </label>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        {selected.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-3">
+            {selected.map((y) => (
+              <Badge key={y}>{y}</Badge>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

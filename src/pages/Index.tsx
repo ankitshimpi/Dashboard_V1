@@ -5,6 +5,7 @@ import PeriodSelector from "../components/ui/PeriodSelector";
 import CalculatedColumnForm from "../components/ui/CalculatedColumnForm";
 import DataChart from "../components/ui/DataChart";
 import DataTable from "../components/ui/DataTable";
+import YearSelector from "../components/ui/YearSelector";
 
 import {
   DataRow,
@@ -16,6 +17,9 @@ import {
   getUniqueMonths,
   getUniqueWeeks,
   buildConditionalFormattingMap,
+  // NEW helpers
+  getUniqueYears,
+  filterByYears,
 } from "../lib/utils";
 
 export default function Index() {
@@ -25,6 +29,7 @@ export default function Index() {
 
   // filters
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
+  const [selectedYears, setSelectedYears] = useState<string[]>([]); // NEW
   const [periodMode, setPeriodMode] = useState<"month" | "week">("week");
   const [selectedPeriods, setSelectedPeriods] = useState<string[]>([]);
 
@@ -35,6 +40,7 @@ export default function Index() {
     setRows(newRows);
     setFileName(fname);
     setSelectedAccounts([]);
+    setSelectedYears([]); // reset years on new upload
     setSelectedPeriods([]);
   }
 
@@ -47,21 +53,14 @@ export default function Index() {
     return applyCalculatedColumns(rows, calcColumns);
   }, [rows, calcColumns]);
 
-  // step 2: account filter
-  const accountFilteredRows = useMemo(
-    () => filterByAccounts(rowsWithCalcs, selectedAccounts),
-    [rowsWithCalcs, selectedAccounts]
-  );
-
-  // step 3: period filter
-  const periodFilteredRows = useMemo(
-    () => filterByPeriods(accountFilteredRows, periodMode, selectedPeriods),
-    [accountFilteredRows, periodMode, selectedPeriods]
-  );
-
-  // collect unique Accounts / Months / Weeks for dropdowns
+  // collect unique dropdown values from rowsWithCalcs
   const allAccounts = useMemo(
     () => getUniqueAccounts(rowsWithCalcs),
+    [rowsWithCalcs]
+  );
+
+  const allYears = useMemo(
+    () => getUniqueYears(rowsWithCalcs),
     [rowsWithCalcs]
   );
 
@@ -75,15 +74,32 @@ export default function Index() {
     [rowsWithCalcs]
   );
 
+  // step 2: account filter
+  const accountFilteredRows = useMemo(
+    () => filterByAccounts(rowsWithCalcs, selectedAccounts),
+    [rowsWithCalcs, selectedAccounts]
+  );
+
+  // step 3 (NEW): year filter
+  const yearFilteredRows = useMemo(
+    () => filterByYears(accountFilteredRows, selectedYears),
+    [accountFilteredRows, selectedYears]
+  );
+
+  // step 4: period filter (week / month)
+  const periodFilteredRows = useMemo(
+    () => filterByPeriods(yearFilteredRows, periodMode, selectedPeriods),
+    [yearFilteredRows, periodMode, selectedPeriods]
+  );
+
   // metric options for the chart dropdown:
-  // take all numeric-like columns from data
+  // take all numeric-like columns from data AFTER all filters
   const metricOptions = useMemo(() => {
     const nums = new Set<string>();
 
     rowsWithCalcs.forEach((r) => {
       Object.entries(r).forEach(([key, val]) => {
-        const n =
-          typeof val === "string" ? Number(val) : (val as number);
+        const n = typeof val === "string" ? Number(val) : (val as number);
         if (!isNaN(n) && key !== "Week" && key !== "Month") {
           nums.add(key);
         }
@@ -114,19 +130,24 @@ export default function Index() {
           <div className="card-title">Upload Data</div>
         </div>
         <div className="card-body">
-          <FileUpload
-            fileName={fileName}
-            onDataLoaded={handleDataLoaded}
-          />
+          <FileUpload fileName={fileName} onDataLoaded={handleDataLoaded} />
         </div>
       </section>
 
-      {/* ACCOUNT FILTER */}
-      <AccountSelector
-        allAccounts={allAccounts}
-        selected={selectedAccounts}
-        onChange={setSelectedAccounts}
-      />
+      {/* ACCOUNT FILTER + YEAR FILTER */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <AccountSelector
+          allAccounts={allAccounts}
+          selected={selectedAccounts}
+          onChange={setSelectedAccounts}
+        />
+
+        <YearSelector
+          allYears={allYears}
+          selected={selectedYears}
+          onChange={setSelectedYears}
+        />
+      </div>
 
       {/* PERIOD MODE TOGGLE + PERIOD SELECTOR */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -153,8 +174,7 @@ export default function Index() {
               <option value="month">Month vs Month</option>
             </select>
             <div className="text-xs text-textDim">
-              This also controls chart grouping and conditional
-              formatting.
+              This also controls chart grouping and conditional formatting.
             </div>
           </div>
         </div>
